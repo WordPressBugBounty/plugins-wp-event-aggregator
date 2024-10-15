@@ -279,6 +279,13 @@ class WP_Event_Aggregator_Common {
 			if ( ! $matches ) {
 				if(strpos($image_url, "https://cdn.evbuc.com") === 0 || strpos($image_url, "https://img.evbuc.com") === 0 || strpos($image_url, "https://drive.google.com") === 0 ){
 					$without_ext = true;
+
+					$e_options           = wpea_get_import_options( 'eventbrite' );
+					$small_thumbnail     = isset( $e_options['small_thumbnail'] ) ? $e_options['small_thumbnail'] : 'no';
+					if( $small_thumbnail == 'yes'){
+						$image_url       = str_replace( 'original.', 'logo.', $image_url );
+					}
+					
 				}else{
 					return new WP_Error( 'image_sideload_failed', __( 'Invalid image URL' ) );
 				}
@@ -501,7 +508,7 @@ class WP_Event_Aggregator_Common {
 	 * @param array $eventbrite_event Eventbrite event.
 	 * @return array
 	 */
-	public function display_import_success_message( $import_data = array(),$import_args = array(), $schedule_post = '' ) {
+	public function display_import_success_message( $import_data = array(),$import_args = array(), $schedule_post = '', $error_reason = '' ) {
 		global $wpea_success_msg, $wpea_errors;
 		if ( ! empty( $wpea_errors ) ) {
 			return;
@@ -545,6 +552,11 @@ class WP_Event_Aggregator_Common {
 		if( $skip_trash > 0 ){
 			$success_message .= "<strong>".sprintf( __( '%d Skipped (Already exists in Trash)', 'wp-event-aggregator' ), $skip_trash ) ."</strong><br>";
 		}
+
+		if ( !empty( $error_reason ) ) {
+			$success_message .= "<strong>" . sprintf( __( '%d ', 'wp-event-aggregator' ), $error_reason ) . "</strong><br>";
+		}
+
 		$wpea_success_msg[] = $success_message;
 
 		if( $schedule_post != '' && $schedule_post > 0 ){
@@ -574,6 +586,7 @@ class WP_Event_Aggregator_Common {
 				update_post_meta( $insert, 'nothing_to_import', $nothing_to_import );
 				update_post_meta( $insert, 'imported_data', $import_data );
 				update_post_meta( $insert, 'import_data', $import_args );
+				update_post_meta( $insert, 'error_reason', $error_reason );
 				if( $schedule_post != '' && $schedule_post > 0 ){
 					update_post_meta( $insert, 'schedule_import_id', $schedule_post );
 				}
@@ -1155,6 +1168,40 @@ class WP_Event_Aggregator_Common {
 			}
 		}
 		return $country;
+	}
+
+	/**
+	 * Ubnbale to hyperlink in description
+	 *
+	 * @since  1.0.0
+	 * @return array
+	 */
+	function wpea_convert_text_to_hyperlink( $post_description = '' ){
+
+		if( !empty($post_description ) ){
+			$url = '@(http(s)?)?(://)?(([a-zA-Z])([-\w]+\.)+([^\s\.]+[^\s]*)+[^,.\s])@';
+			$post_description = preg_replace($url, '<a href="http$2://$4" target="_blank" title="$0">$0</a>', $post_description );
+
+			$search  = ['  ', '_ ', ' _'];
+			$replace = ['<br />', '<br />', '<br />'];
+			$post_description = str_replace($search, $replace, $post_description);
+		}
+		return $post_description;
+	}
+
+	/**
+	 * Remove the facebook event link in event desction
+	 *
+	 * @since  1.0.0
+	 * @return array
+	 */
+	function wpea_remove_facebook_link_in_event_description( $post_description = '', $event_id = '' ){
+
+		if ( !empty( $post_description ) && !empty( $event_id ) ) {
+			$event_url        = 'https://www.facebook.com/events/'.$event_id.'/';
+			$post_description = str_replace( $event_url, '', $post_description );
+		}
+		return $post_description;
 	}
 
 }
