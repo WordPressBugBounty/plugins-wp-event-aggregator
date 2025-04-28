@@ -26,6 +26,7 @@ class WP_Event_Aggregator_Common {
 		add_action( 'wpea_render_pro_notice', array( $this, 'render_pro_notice') );
 		add_action( 'admin_init', array( $this, 'wpea_check_if_access_token_invalidated' ) );
 		add_action( 'admin_init', array( $this, 'wpea_check_for_minimum_pro_version' ) );
+		add_action( 'ep_after_single_event_contant', array( $this, 'wpea_add_eventprime_add_ticket_section' ) );
 	}	
 
 	/**
@@ -49,7 +50,7 @@ class WP_Event_Aggregator_Common {
 					if( !empty( $active_plugins ) ){
 						foreach ($active_plugins as $slug => $name ) {
 							?>
-							<option value="<?php echo $slug;?>" <?php selected( $selected, $slug ); ?>><?php echo $name; ?></option>
+							<option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $selected, $slug ); ?>><?php echo esc_attr( $name ); ?></option>
 							<?php
 						}
 					}
@@ -72,8 +73,8 @@ class WP_Event_Aggregator_Common {
 					$taxo_tags = implode(',', $taxonomy_terms['tags'] );
 				}
 				?>
-				<input type="hidden" id="wpea_taxo_cats" value="<?php echo $taxo_cats;?>">
-				<input type="hidden" id="wpea_taxo_tags" value="<?php echo $taxo_tags;?>">
+				<input type="hidden" id="wpea_taxo_cats" value="<?php echo esc_attr( $taxo_cats ); ?>">
+				<input type="hidden" id="wpea_taxo_tags" value="<?php echo esc_attr( $taxo_tags ); ?>">
 				<div class="event_taxo_terms_wraper">
 
 				</div>
@@ -94,13 +95,15 @@ class WP_Event_Aggregator_Common {
 	 */
 	function wpea_render_terms_by_plugin() {
 		global $importevents;
-		$event_plugin  = esc_attr( sanitize_text_field( $_REQUEST['event_plugin'] ) );
+		$event_plugin  = isset( $_REQUEST['event_plugin'] ) ? esc_attr( sanitize_text_field( wp_unslash( $_REQUEST['event_plugin'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$taxo_cats = $taxo_tags = array();
-		if( isset( $_REQUEST['taxo_cats'] ) ){
-			$taxo_cats = explode(',', sanitize_text_field( $_REQUEST['taxo_cats'] ) );
+		if( isset( $_REQUEST['taxo_cats'] ) ){ // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$texo_cats = isset( $_REQUEST['taxo_cats'] ) ? explode(',', esc_attr( sanitize_text_field( wp_unslash( $_REQUEST['taxo_cats'] ) ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$taxo_cats = $texo_cats;
 		}
-		if( isset( $_REQUEST['taxo_tags'] ) ){
-			$taxo_tags = explode(',', sanitize_text_field( $_REQUEST['taxo_tags'] ) );	
+		if( isset( $_REQUEST['taxo_tags'] ) ){ // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$texo_tags = isset( $_REQUEST['taxo_tags'] ) ? explode(',', sanitize_text_field( wp_unslash( $_REQUEST['taxo_tags'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$taxo_tags = $texo_tags; 
 		}
 		$event_taxonomy = $event_tag_taxonomy = '';
 		$event_taxonomy2 = '';
@@ -116,19 +119,19 @@ class WP_Event_Aggregator_Common {
 		$terms = array();
 		if ( $event_taxonomy != '' ) {
 			if( taxonomy_exists( $event_taxonomy ) ){
-				$terms = get_terms( $event_taxonomy, array( 'hide_empty' => false ) );
+				$terms = get_terms( array( 'taxonomy' => $event_taxonomy, 'hide_empty' => false, ) );
 			}
 		}
 		if( ! empty( $terms ) ){ ?>
 			<?php if( 'eventon' == $event_plugin && wpea_is_pro() ){ ?>
 				<strong style="display: block;margin-bottom: 5px;">
-					<?php _e( 'Event Type:', 'wp-event-aggregator' );?>
+					<?php esc_attr_e( 'Event Type:', 'wp-event-aggregator' );?>
 				</strong>
 			<?php } ?>
 			<select name="event_cats[]" multiple="multiple">
 		        <?php foreach ($terms as $term ) { ?>
-					<option value="<?php echo $term->term_id; ?>" <?php if( in_array( $term->term_id, $taxo_cats ) ){ echo 'selected="selected"'; } ?> >
-	                	<?php echo $term->name; ?>                                	
+					<option value="<?php echo esc_attr( $term->term_id ); ?>" <?php if( in_array( $term->term_id, $taxo_cats ) ){ echo 'selected="selected"'; } ?> >
+	                	<?php echo esc_attr( $term->name ); ?>                                	
 	                </option>
 				<?php } ?> 
 			</select>
@@ -139,19 +142,19 @@ class WP_Event_Aggregator_Common {
 		$terms2 = array();
 		if ( $event_taxonomy2 != '' && wpea_is_pro() ) {
 			if( taxonomy_exists( $event_taxonomy2 ) ){
-				$terms2 = get_terms( $event_taxonomy2, array( 'hide_empty' => false ) );
+				$terms2 = get_terms( array( 'taxonomy'   => $event_taxonomy2, 'hide_empty' => false, ) );
 			}
 		}
 		if( ! empty( $terms2 ) ){ ?>
 			<?php if( 'eventon' == $event_plugin ){ ?>	
 				<strong style="display: block;margin: 5px 0px;">
-					<?php _e( 'Event Type 2:', 'wp-event-aggregator' );?>
+					<?php esc_attr_e( 'Event Type 2:', 'wp-event-aggregator' );?>
 				</strong>
 			<?php } ?>
 			<select name="event_cats2[]" multiple="multiple">
 		        <?php foreach ($terms2 as $term2 ) { ?>
-					<option value="<?php echo $term2->term_id; ?>">
-	                	<?php echo $term2->name; ?>                                	
+					<option value="<?php echo esc_attr( $term2->term_id ); ?>">
+	                	<?php echo esc_attr( $term2->name ); ?>                                	
 	                </option>
 				<?php } ?> 
 			</select>
@@ -191,6 +194,11 @@ class WP_Event_Aggregator_Common {
 		// check EventON.
 		if( class_exists( 'EventON' ) ){
 			$supported_plugins['eventon'] = __( 'EventON', 'wp-event-aggregator' );
+		}
+
+		// check EventPrime.
+		if ( class_exists( 'Eventprime_Event_Calendar_Management_Admin' ) ) {
+			$supported_plugins['eventprime'] = __( 'EventPrime', 'wp-event-aggregator' );
 		}
 
 		// check All in one Event Calendar
@@ -287,7 +295,7 @@ class WP_Event_Aggregator_Common {
 					}
 					
 				}else{
-					return new WP_Error( 'image_sideload_failed', __( 'Invalid image URL' ) );
+					return new WP_Error( 'image_sideload_failed', __( 'Invalid image URL', 'wp-event-aggregator' ) );
 				}
 			}
 
@@ -321,7 +329,7 @@ class WP_Event_Aggregator_Common {
 					'post_type'   => 'attachment',
 					'post_status' => 'any',
 					'fields'      => 'ids',
-					'meta_query'  => array(
+					'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 						array(
 							'value' => $image_name,
 							'key'   => '_wpea_attachment_source_name',
@@ -401,15 +409,38 @@ class WP_Event_Aggregator_Common {
 					$eventbrite_id = get_post_meta( $event_id, 'wpea_event_id', true );
 					if ( $eventbrite_id && $eventbrite_id > 0 && is_numeric( $eventbrite_id ) ) {
 						$ticket_section = $this->wpea_get_ticket_section( $eventbrite_id );
-						echo $ticket_section;
+						echo $ticket_section; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped 
 					}
 				}
 			}elseif( $eventbrite_event_id && $eventbrite_event_id > 0 && is_numeric( $eventbrite_event_id ) ){
 				$ticket_section = $this->wpea_get_ticket_section( $eventbrite_event_id );
-				echo $ticket_section;
+				echo $ticket_section; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped 
 			}
 		}
 	}
+
+	/**
+	 * Add ticket section to Eventbrite event.
+	 *
+	 * @since    1.0.0
+	 */
+	public function wpea_add_eventprime_add_ticket_section() {
+		global $importevents;
+
+		$xt_post_type = $importevents->eventprime->get_event_posttype();
+		$event_id     = get_the_ID();
+		$event_origin = get_post_meta( $event_id, 'wpea_event_origin', true );
+		if ( $event_id > 0 && $event_origin == 'eventbrite' ) {
+			if ( ( $importevents->eventprime->get_event_posttype() == $xt_post_type ) ) {
+				$eventbrite_id = get_post_meta( $event_id, 'wpea_event_id', true );
+				if ( $eventbrite_id && $eventbrite_id > 0 && is_numeric( $eventbrite_id ) ) {
+					$ticket_section = $this->wpea_get_ticket_section( $eventbrite_id );
+					echo $ticket_section; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped 
+				}
+			}
+		}
+	}
+
 
 	/**
 	 * Display Ticket Section after eventbrite events.
@@ -482,14 +513,14 @@ class WP_Event_Aggregator_Common {
 			ob_start();
 			if( is_ssl() ){
 				if('1'=== $ticket_model ){
-					echo wpea_model_checkout_markup($eventbrite_id);
+					echo wpea_model_checkout_markup($eventbrite_id); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped 
 				}else{
-					echo wpea_nonmodel_checkout_markup($eventbrite_id);
+					echo wpea_nonmodel_checkout_markup($eventbrite_id); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped 
 				}
 			} else {
 				?>
 				<div class="eventbrite-ticket-section" style="width:100%; text-align:left;">
-					<iframe id="eventbrite-tickets-<?php echo $eventbrite_id; ?>" src="//www.eventbrite.com/tickets-external?eid=<?php echo $eventbrite_id; ?>" style="width:100%;height:300px; border: 0px;"></iframe>
+					<iframe id="eventbrite-tickets-<?php echo esc_attr( $eventbrite_id ); ?>" src="//www.eventbrite.com/tickets-external?eid=<?php echo esc_attr( $eventbrite_id ); ?>" style="width:100%;height:300px; border: 0px;"></iframe>
 				</div>
 				<?php
 			}
@@ -541,20 +572,24 @@ class WP_Event_Aggregator_Common {
 		
 		$success_message = esc_html__( 'Event(s) successfully imported.', 'wp-event-aggregator' )."<br>";
 		if( $created > 0 ){
+			// translators: %d: Number of events Created.
 			$success_message .= "<strong>".sprintf( __( '%d Created', 'wp-event-aggregator' ), $created )."</strong><br>";
 		}
 		if( $updated > 0 ){
+			// translators: %d: Number of events Updated.
 			$success_message .= "<strong>".sprintf( __( '%d Updated', 'wp-event-aggregator' ), $updated )."</strong><br>";
 		}
 		if( $skipped > 0 ){
+			// translators: %d: Number of events Skipped.
 			$success_message .= "<strong>".sprintf( __( '%d Skipped (Already exists)', 'wp-event-aggregator' ), $skipped ) ."</strong><br>";
 		}
 		if( $skip_trash > 0 ){
+			// translators: %d: Number of events Skipped.
 			$success_message .= "<strong>".sprintf( __( '%d Skipped (Already exists in Trash)', 'wp-event-aggregator' ), $skip_trash ) ."</strong><br>";
 		}
 
 		if ( !empty( $error_reason ) ) {
-			$success_message .= "<strong>" . sprintf( __( '%d ', 'wp-event-aggregator' ), $error_reason ) . "</strong><br>";
+			$success_message .= "<strong>" . esc_html( $error_reason ) . "</strong> " . esc_html__( 'errors found', 'wp-event-aggregator' ) . "<br>";
 		}
 
 		$wpea_success_msg[] = $success_message;
@@ -673,8 +708,8 @@ class WP_Event_Aggregator_Common {
 		}
 		?>
 		<td>
-			<input type="text" name="<?php echo $name; ?>" required="required" value="<?php echo $event_source; ?>">
-			<span><?php echo $event_origins; ?></span>
+			<input type="text" name="<?php echo esc_attr( $name ); ?>" required="required" value="<?php echo esc_attr( $event_source ); ?>">
+			<span><?php echo esc_attr( $event_origins ); ?></span>
 		</td>
 		<?php
 	}
@@ -791,6 +826,7 @@ class WP_Event_Aggregator_Common {
 		$skip_trash = isset( $wpea_options['wpea']['skip_trash'] ) ? $wpea_options['wpea']['skip_trash'] : 'no';
 		
 		if( $skip_trash == 'yes' ){
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			$get_post_id = $wpdb->get_col(
 				$wpdb->prepare(
 					'SELECT ' . $wpdb->prefix . 'posts.ID FROM ' . $wpdb->prefix . 'posts, ' . $wpdb->prefix . 'postmeta WHERE ' . $wpdb->prefix . 'posts.post_type = %s AND ' . $wpdb->prefix . 'postmeta.post_id = ' . $wpdb->prefix . 'posts.ID AND (' . $wpdb->prefix . 'postmeta.meta_key = %s AND ' . $wpdb->prefix . 'postmeta.meta_value = %s ) LIMIT 1',
@@ -800,6 +836,7 @@ class WP_Event_Aggregator_Common {
 				)
 			);
 		}else{
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			$get_post_id = $wpdb->get_col(
 				$wpdb->prepare(
 					'SELECT ' . $wpdb->prefix . 'posts.ID FROM ' . $wpdb->prefix . 'posts, ' . $wpdb->prefix . 'postmeta WHERE ' . $wpdb->prefix . 'posts.post_type = %s AND ' . $wpdb->prefix . 'postmeta.post_id = ' . $wpdb->prefix . 'posts.ID AND ' . $wpdb->prefix . 'posts.post_status != %s AND (' . $wpdb->prefix . 'postmeta.meta_key = %s AND ' . $wpdb->prefix . 'postmeta.meta_value = %s ) LIMIT 1',
@@ -816,9 +853,9 @@ class WP_Event_Aggregator_Common {
 		}
 
 		if( isset( $centralize_array['origin'] ) && $centralize_array['origin'] == 'ical' ){
-			
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, 	WordPress.DB.PreparedSQLPlaceholders.QuotedSimplePlaceholder
 			$search_query = $wpdb->prepare( "SELECT DISTINCT ".$wpdb->posts.".`ID` FROM ".$wpdb->posts." INNER JOIN ".$wpdb->postmeta." ON ".$wpdb->posts.".`ID` = ".$wpdb->postmeta.".`post_id` WHERE ".$wpdb->posts.".`post_title` = '%s' AND ".$wpdb->posts.".`post_type` = '%s' AND ( ".$wpdb->postmeta.".`meta_key` = '_wpea_starttime_str' AND ".$wpdb->postmeta.".`meta_value` = '%s' ) LIMIT 1", $centralize_array['name'], $post_type, $centralize_array['starttime_local'] );
-
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			$is_exists = $wpdb->get_var( $search_query );
 			if( $is_exists && is_numeric( $is_exists ) && $is_exists > 0 ){
 				return $is_exists;
@@ -857,7 +894,12 @@ class WP_Event_Aggregator_Common {
 		if( !empty( $wpea_user_token_options ) ){
 			$authorize_status =	isset( $wpea_user_token_options['authorize_status'] ) ? $wpea_user_token_options['authorize_status'] : 0;
 			if( 0 == $authorize_status ){
-				$wpea_warnings[] = __( 'The Access Token has been invalidated because the user has changed their password, or Facebook has changed the session for security reasons. Please reauthorize your Facebook account from <strong>WP Event Aggregator</strong> > <strong> <a style="text-decoration: none;" href="'.admin_url( 'admin.php?page=import_events&tab=settings' ).'" target="_blank">Settings</a> </strong>.', 'wp-event-aggregator' );
+				$settings_url = esc_url( admin_url( 'admin.php?page=import_events&tab=settings' ) );
+				$wpea_warnings[] = sprintf(
+					// translators: %s: Settings page URL.
+					__( 'The Access Token has been invalidated because the user has changed their password, or Facebook has changed the session for security reasons. Please reauthorize your Facebook account from <strong>WP Event Aggregator</strong> > <strong> <a style="text-decoration: none;" href="%s" target="_blank">Settings</a> </strong>.', 'wp-event-aggregator' ), //phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
+					$settings_url
+				);
 			}
 		}
 	}
@@ -886,7 +928,7 @@ class WP_Event_Aggregator_Common {
 		if( !wpea_is_pro() ){
 		?>
 		<span class="wpea_small">
-	        <?php printf( '<span style="color: red">%s</span> <a href="' . WPEA_PLUGIN_BUY_NOW_URL. '" target="_blank" >%s</a>', __( 'Available in Pro Add-on.', 'wp-event-aggregator' ), __( 'Upgrade to PRO', 'wp-event-aggregator' ) ); ?>
+	        <?php printf( '<span style="color: red">%s</span> <a href="' . esc_url( WPEA_PLUGIN_BUY_NOW_URL ). '" target="_blank" >%s</a>', esc_attr__( 'Available in Pro Add-on.', 'wp-event-aggregator' ), esc_attr__( 'Upgrade to PRO', 'wp-event-aggregator' ) ); ?>
 	    </span>
 		<?php
 		}
@@ -1204,6 +1246,23 @@ class WP_Event_Aggregator_Common {
 		return $post_description;
 	}
 
+	public function wepa_create_update_ical_categories( $ical_cateories = array(), $source_taxonomy ){
+
+		$event_cat_ids  = [];
+		foreach ( $ical_cateories as $category_name ) {
+			$term = term_exists( $category_name, $source_taxonomy );
+			if( $term && isset($term['term_id'] ) ) {
+				$event_cat_ids[] = (int) $term['term_id'];
+			} else {
+				$new_term = wp_insert_term( $category_name, $source_taxonomy );
+				if (!is_wp_error($new_term) && isset($new_term['term_id'])) {
+					$event_cat_ids[] = (int) $new_term['term_id'];
+				}
+			}
+		}
+		return $event_cat_ids;
+
+	}
 }
 
 
@@ -1331,6 +1390,7 @@ function wpea_get_inprogress_import(){
 	if ( is_multisite() ) {
 		$batch_query = "SELECT * FROM {$wpdb->sitemeta} WHERE meta_key LIKE '%wpea_import_batch_%' ORDER BY meta_id ASC";
 	}
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 	$batches = $wpdb->get_results( $batch_query );
 	return $batches;
 }
@@ -1344,16 +1404,16 @@ function wpea_nonmodel_checkout_markup( $eventbrite_id ){
 	ob_start();
 	?>
 	<div id="wpea-eventbrite-checkout-widget"></div>
-	<script src="https://www.eventbrite.com/static/widgets/eb_widgets.js"></script>
+	<script src="https://www.eventbrite.com/static/widgets/eb_widgets.js"></script><?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript ?>
 	<script type="text/javascript">
 		var orderCompleteCallback = function() {
 			console.log("Order complete!");
 		};
 		window.EBWidgets.createWidget({
 			widgetType: "checkout",
-			eventId: "<?php echo $eventbrite_id; ?>",
+			eventId: "<?php echo esc_attr( $eventbrite_id ); ?>",
 			iframeContainerId: "wpea-eventbrite-checkout-widget",
-			iframeContainerHeight: <?php echo apply_filters('wpea_embeded_checkout_height', 530); ?>,
+			iframeContainerHeight: <?php echo esc_attr( apply_filters('wpea_embeded_checkout_height', 530 ) ); ?>,
 			onOrderComplete: orderCompleteCallback
 		});
 	</script>
@@ -1372,7 +1432,7 @@ function wpea_model_checkout_markup( $eventbrite_id ){
 	<button id="wpea-eventbrite-checkout-trigger" type="button">
 		<?php esc_html_e( 'Buy Tickets', 'wp-event-aggregator' ); ?>
 	</button>
-	<script src="https://www.eventbrite.com/static/widgets/eb_widgets.js"></script>
+	<script src="https://www.eventbrite.com/static/widgets/eb_widgets.js"></script><?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript ?>
 	<script type="text/javascript">
 		var orderCompleteCallback = function() {
 			console.log("Order complete!");
@@ -1380,7 +1440,7 @@ function wpea_model_checkout_markup( $eventbrite_id ){
 
 		window.EBWidgets.createWidget({
 			widgetType: "checkout",
-			eventId: "<?php echo $eventbrite_id; ?>",
+			eventId: "<?php echo esc_attr( $eventbrite_id ); ?>",
 			modal: true,
 			modalTriggerElementId: "wpea-eventbrite-checkout-trigger",
 			onOrderComplete: orderCompleteCallback

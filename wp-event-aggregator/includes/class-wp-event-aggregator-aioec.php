@@ -134,6 +134,15 @@ class WP_Event_Aggregator_Aioec {
 			//Event ID
 			update_post_meta( $inserted_event_id, 'wpea_event_id', $centralize_array['ID'] );
 
+			$wpea_options       = get_option( WPEA_OPTIONS );
+			$is_import_ical_cat = isset( $wpea_options['ical']['ical_cat_import'] ) ? $wpea_options['ical']['ical_cat_import'] : 'no';
+			$ical_categories    = isset( $centralize_array['ical_categories'] ) ? $centralize_array['ical_categories'] : '';
+			if( !empty( $ical_categories ) && $is_import_ical_cat == 'yes' ){
+				$ical_cats      = explode( ',', $ical_categories );
+				$event_cat_ids  = $importevents->common->wepa_create_update_ical_categories( $ical_cats, $this->taxonomy );
+				$event_args['event_cats']  = array_merge( $event_args['event_cats'], $event_cat_ids );
+			}
+
 			// Asign event category.
 			$wpea_cats = isset( $event_args['event_cats'] ) ? $event_args['event_cats'] : array();
 			if ( ! empty( $wpea_cats ) ) {
@@ -170,12 +179,14 @@ class WP_Event_Aggregator_Aioec {
 				'start'   => $start_time,
 				'end' 	  => $end_time,
 			);
-
+// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			$event_count = $wpdb->get_var( "SELECT COUNT(*) FROM $this->event_instances_table WHERE `post_id` = ".absint( $inserted_event_id ) );
 			if( $event_count > 0 && is_numeric( $event_count ) ){
 				$where = array( 'post_id' => absint( $inserted_event_id ) );
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$wpdb->update( $this->event_instances_table , $event_array, $where );	
 			}else{
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$wpdb->insert( $this->event_instances_table , $event_array );
 			}
 
@@ -276,12 +287,14 @@ class WP_Event_Aggregator_Aioec {
 			if( $lon != '' ){
 				$event_format[] = '%f';  // longitude
 			}
-
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			$event_exist_count = $wpdb->get_var( "SELECT COUNT(*) FROM $this->event_db_table WHERE `post_id` = ".absint( $inserted_event_id ) );
 			if( $event_exist_count > 0 && is_numeric( $event_exist_count ) ){
 				$where = array( 'post_id' => absint( $inserted_event_id ) );
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$wpdb->update( $this->event_db_table, $event_table_array, $where, $event_format );	
 			}else{
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$wpdb->insert( $this->event_db_table, $event_table_array, $event_format );
 			}
 
@@ -327,7 +340,7 @@ class WP_Event_Aggregator_Aioec {
 	 */
 	function convert_datetime_to_local_datetime( $datetime, $local_timezone ) {
 		try {
-			$datetime2 = new DateTime( date('Y-m-d H:i:s', $datetime), new DateTimeZone( $local_timezone ) );
+			$datetime2 = new DateTime( gmdate('Y-m-d H:i:s', $datetime), new DateTimeZone( $local_timezone ) );
 			$datetime2->setTimezone(new DateTimeZone( 'UTC' ) );
 			return $datetime2->format( 'Y-m-d H:i:s' );
 		}

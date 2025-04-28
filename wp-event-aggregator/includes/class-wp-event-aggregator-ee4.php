@@ -122,6 +122,14 @@ class WP_Event_Aggregator_EE4 {
 			//Event ID
 			update_post_meta( $inserted_event_id, 'wpea_event_id', $centralize_array['ID'] );
 			
+			$wpea_options       = get_option( WPEA_OPTIONS );
+			$is_import_ical_cat = isset( $wpea_options['ical']['ical_cat_import'] ) ? $wpea_options['ical']['ical_cat_import'] : 'no';
+			$ical_categories    = isset( $centralize_array['ical_categories'] ) ? $centralize_array['ical_categories'] : '';
+			if( !empty( $ical_categories ) && $is_import_ical_cat == 'yes' ){
+				$ical_cats      = explode( ',', $ical_categories );
+				$event_cat_ids  = $importevents->common->wepa_create_update_ical_categories( $ical_cats, $this->taxonomy );
+				$event_args['event_cats']  = array_merge( $event_args['event_cats'], $event_cat_ids );
+			}
 
 			// Asign event category.
 			$wpea_cats = isset( $event_args['event_cats'] ) ? $event_args['event_cats'] : array();
@@ -148,8 +156,8 @@ class WP_Event_Aggregator_EE4 {
 			}
 
 			// Event Date & time Details
-			$event_start_date     = date( 'Y-m-d H:i:s', $start_time );
-			$event_end_date       = date( 'Y-m-d H:i:s', $end_time );
+			$event_start_date     = gmdate( 'Y-m-d H:i:s', $start_time );
+			$event_end_date       = gmdate( 'Y-m-d H:i:s', $end_time );
 			
 			$datetime_table = $wpdb->prefix . 'esp_datetime';
 			$event_meta_table = $wpdb->prefix . 'esp_event_meta';
@@ -162,8 +170,10 @@ class WP_Event_Aggregator_EE4 {
 
 			if( $is_exitsing_event ){
 				$where = array( 'EVT_ID' => $inserted_event_id );
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$is_insert = $wpdb->update( $datetime_table , $datetime_data, $where );
 			}else{
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$is_insert = $wpdb->insert( $datetime_table , $datetime_data );
 			}
 
@@ -173,13 +183,16 @@ class WP_Event_Aggregator_EE4 {
 				$event_meta_data = array(
 					'EVT_display_desc' 			  => 0,
 					'EVT_display_ticket_selector' => 0,
-					'EVT_visible_on'			  => date('Y-m-d H:i:s')
+					'EVT_visible_on'			  => gmdate('Y-m-d H:i:s')
 				);
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$event_meta_id = $wpdb->get_var( $wpdb->prepare( "SELECT `EVTM_ID` FROM {$event_meta_table} WHERE EVT_ID = %d", $inserted_event_id ) );
 				if( !empty($event_meta_id) && $event_meta_id > 0 ){
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 					$wpdb->update( $event_meta_table, $event_meta_data, array( 'EVTM_ID' => $event_meta_id, 'EVT_ID' => $inserted_event_id ) );
 				}else{
 					$event_meta_data['EVT_ID'] = $inserted_event_id;
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 					$wpdb->insert( $event_meta_table, $event_meta_data );	
 				}
 			}
@@ -193,10 +206,13 @@ class WP_Event_Aggregator_EE4 {
 			if( !empty( $venue_id ) && $venue_id > 0 ){
 				// Connect venue with Event
 				$event_venue_table = $wpdb->prefix . 'esp_event_venue';
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$result = $wpdb->get_col( $wpdb->prepare( "SELECT * FROM {$event_venue_table} WHERE EVT_ID = %d", $inserted_event_id ) );
 				if( count( $result ) > 0 ){
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 					$wpdb->update( $event_venue_table, array( 'VNU_ID' => $venue_id ), array( 'EVT_ID' => $inserted_event_id ) );
 				}else{
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 					$wpdb->insert( $event_venue_table, array( 'EVT_ID' => $inserted_event_id, 'VNU_ID' => $venue_id ) );	
 				}
 			}
@@ -294,18 +310,22 @@ class WP_Event_Aggregator_EE4 {
 		$country_table = $wpdb->prefix . 'esp_country';
 		$state_table = $wpdb->prefix . 'esp_state';
 		if( $venue_country != ''){
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			$cnt_country = $wpdb->get_row( $wpdb->prepare( "SELECT `CNT_ISO`,`CNT_active` FROM {$country_table} WHERE `CNT_name` = %s OR `CNT_ISO` = %s OR `CNT_ISO3` = %s", $venue_country, $venue_country, $venue_country ) );
 			if( !empty( $cnt_country ) && isset( $cnt_country->CNT_ISO ) ){
 				$cnt_iso = $cnt_country->CNT_ISO;
 				if( $cnt_country->CNT_active == 0 ){
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 					$active_con = $wpdb->update( $country_table, array( 'CNT_active' => 1 ), array( 'CNT_ISO' => $cnt_iso ) );
 				}
 			}
 		}
 
 		if( $venue_state != '' && $cnt_iso != ''){
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 			$sta_id = $wpdb->get_var( $wpdb->prepare( "SELECT `STA_ID` FROM {$state_table} WHERE `CNT_ISO` = %s AND (`STA_abbrev` = %s OR `STA_name` = %s)", $cnt_iso, $venue_state, $venue_state ) );
 			if( empty( $sta_id ) || is_null( $sta_id ) ){
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 				$inserted = $wpdb->insert( $state_table, array( 'CNT_ISO' => $cnt_iso, 'STA_abbrev' => $venue_state, 'STA_name' => $venue_state ) );
 				if( $inserted ){
 					$sta_id = $wpdb->insert_id;
@@ -332,6 +352,7 @@ class WP_Event_Aggregator_EE4 {
 
 		$venue_table = $wpdb->prefix . 'esp_venue_meta';
 
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$wpdb->insert( $venue_table , $venue_data );
 
 		return $ivenue_id;
@@ -352,8 +373,8 @@ class WP_Event_Aggregator_EE4 {
 		$existing_venue = get_posts( array(
 			'posts_per_page' => 1,
 			'post_type' => $this->venue_posttype,
-			'meta_key' => 'wpea_ee4_venue_id',
-			'meta_value' => $venue_id,
+			'meta_key' => 'wpea_ee4_venue_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key 
+			'meta_value' => $venue_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value 
 			'suppress_filters' => false,
 		) );
 
@@ -378,8 +399,8 @@ class WP_Event_Aggregator_EE4 {
 		$existing_venue = get_posts( array(
 			'posts_per_page'   => 1,
 			'post_type'        => $this->venue_posttype,
-			'meta_key'         => 'wpea_ee4_venue_id',
-			'meta_value'       => $venue_name,
+			'meta_key'         => 'wpea_ee4_venue_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			'meta_value'       => $venue_name, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			'suppress_filters' => false,
 		) );
 

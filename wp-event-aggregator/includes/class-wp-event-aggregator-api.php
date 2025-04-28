@@ -16,7 +16,7 @@ class WP_Event_Aggregator_Meetup_API {
      * Contain Meetup GraphQL URL
      * @access private
      */
-    private $api_url = 'https://api.meetup.com/gql';
+    private $api_url = 'https://api.meetup.com/gql-ext';
 
     /**
      * Contain Meetup API Key
@@ -32,7 +32,7 @@ class WP_Event_Aggregator_Meetup_API {
      */
     public function __construct( $api_key = '' ){
         if ( empty( $api_key ) ) {
-            $access_token   = get_option('wpea_muser_token_options', true);
+            $access_token   = get_option('wpea_muser_token_options', false );
             $api_key        = get_option('wpea_options', true);
 
             if ( ! empty( $access_token ) ) {
@@ -49,6 +49,7 @@ class WP_Event_Aggregator_Meetup_API {
      * @access private
      */
     private function getEventQuery(){
+        // phpcs:ignore Squiz.PHP.Heredoc.NotAllowed
         return <<<'GRAPHQL'
                 query ($eventId: ID!) {
                     event(id: $eventId) {
@@ -57,13 +58,9 @@ class WP_Event_Aggregator_Meetup_API {
                         dateTime
                         endTime
                         description
-                        shortDescription
-                        recurrenceDescription
-                        duration
-                        timezone
                         eventUrl
                         status
-                        venue{
+                        venues{
                             id
                             name
                             address
@@ -71,34 +68,40 @@ class WP_Event_Aggregator_Meetup_API {
                             state
                             country
                             lat
-                            lng
-                            postalCode
-                            zoom
-                        }
-                        onlineVenue{
-                            type
-                            url
-                        }
-                        isOnline
-                        imageUrl
-                        hosts{
-                            id
-                            name
-                            email
-                            lat
                             lon
-                            city
-                            state
-                            country
+                            postalCode
+                            venueType
+                        }
+                        series{
+                            endDate
+                            description
+                        }
+                        featuredEventPhoto{
+                            id
+                            baseUrl
+                            thumbUrl
+                            standardUrl
+                            highResUrl
+                        }
+                        eventType
+                        eventHosts{
+                            memberId
+                            name
+                            memberPhoto{
+                                id
+                                standardUrl
+                                highResUrl
+                            }
                         }
                         group{
                             id
                             name
                             description
-                            emailListAddress
+                            emailAnnounceAddress
                             urlname
-                            logo{
-                                baseUrl
+                            keyGroupPhoto {
+                                id
+                                standardUrl
                             }
                         }
                     }
@@ -111,15 +114,16 @@ GRAPHQL;
      * @access private
      */
     private function getGroupEventsQuery(){
+        // phpcs:ignore Squiz.PHP.Heredoc.NotAllowed
         return <<<'GRAPHQL'
             query ($urlname: String!, $itemsNum: Int!, $cursor: String) {
                 groupByUrlname(urlname: $urlname) {
-                    upcomingEvents(input: {first: $itemsNum, after: $cursor}){
+                    events(first: $itemsNum, after: $cursor ){
                         pageInfo{
                             hasNextPage
                             endCursor
                         }
-                        count
+                        totalCount
                         edges {
                             node {
                                 id
@@ -127,13 +131,9 @@ GRAPHQL;
                                 dateTime
                                 endTime
                                 description
-                                shortDescription
-                                recurrenceDescription
-                                duration
-                                timezone
                                 eventUrl
                                 status
-                                venue{
+                                venues{
                                     id
                                     name
                                     address
@@ -141,34 +141,40 @@ GRAPHQL;
                                     state
                                     country
                                     lat
-                                    lng
-                                    postalCode
-                                    zoom
-                                }
-                                onlineVenue{
-                                    type
-                                    url
-                                }
-                                isOnline
-                                imageUrl
-                                hosts{
-                                    id
-                                    name
-                                    email
-                                    lat
                                     lon
-                                    city
-                                    state
-                                    country
+                                    postalCode
+                                    venueType
+                                }
+                                series{
+                                    endDate
+                                    description
+                                }
+                                featuredEventPhoto{
+                                    id
+                                    baseUrl
+                                    thumbUrl
+                                    standardUrl
+                                    highResUrl
+                                }
+                                eventType
+                                eventHosts{
+                                    memberId
+                                    name
+                                    memberPhoto{
+                                        id
+                                        standardUrl
+                                        highResUrl
+                                    }
                                 }
                                 group{
                                     id
                                     name
                                     description
-                                    emailListAddress
+                                    emailAnnounceAddress
                                     urlname
-                                    logo{
-                                        baseUrl
+                                    keyGroupPhoto {
+                                        id
+                                        standardUrl
                                     }
                                 }
                             }
@@ -207,7 +213,7 @@ GRAPHQL;
      * @return array User data
      */
     public function getGroupName(  $meetup_group_id = '' ){
-
+        // phpcs:ignore Squiz.PHP.Heredoc.NotAllowed
         $query = <<<'GRAPHQL'
         query ($urlname: String!) {
             groupByUrlname(urlname: $urlname) {
@@ -226,7 +232,7 @@ GRAPHQL;
      * @return array User data
      */
     public function getAuthUser(){
-
+        // phpcs:ignore Squiz.PHP.Heredoc.NotAllowed
         $query = <<<'GRAPHQL'
             query{
                 self{
@@ -260,7 +266,7 @@ GRAPHQL;
             ]
         ]))) {
             $error = error_get_last();
-            throw new ErrorException( $error['message'], $error['type']);
+            throw new ErrorException( esc_html( $error['message'] ), intval( $error['type'] ) );
         }
 
         return json_decode($data, true);

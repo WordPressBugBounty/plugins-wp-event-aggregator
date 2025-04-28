@@ -3,7 +3,7 @@
  * Plugin Name:       WP Event Aggregator
  * Plugin URI:        http://xylusthemes.com/plugins/wp-event-aggregator/
  * Description:       Import Events from anywhere - Facebook, Eventbrite, Meetup, iCalendar and ICS into your WordPress site.
- * Version:           1.8.3
+ * Version:           1.8.4
  * Author:            Xylus Themes
  * Author URL:        http://xylusthemes.com
  * License:           GPL-2.0+
@@ -27,7 +27,7 @@ class WP_Event_Aggregator{
 	 * WP_Event_Aggregator The one true WP_Event_Aggregator.
 	 */
 	private static $instance;
-	public $common, $cpt, $eventbrite, $meetup, $facebook, $ical_parser, $ical, $admin, $manage_import, $wpea, $tec, $em, $eventon, $event_organizer, $aioec, $ee4, $my_calendar, $common_pro, $facebook_pro, $eventum, $cron, $fb_authorize, $meetup_authorize, $ical_parser_aioec;
+	public $common, $cpt, $eventbrite, $meetup, $facebook, $ical_parser, $ical, $admin, $manage_import, $wpea, $tec, $em, $eventon, $event_organizer, $aioec, $ee4, $my_calendar, $common_pro, $facebook_pro, $eventum, $cron, $fb_authorize, $meetup_authorize, $ical_parser_aioec, $eventprime;
 
     /**
      * Main WP Event Aggregator Instance.
@@ -77,6 +77,7 @@ class WP_Event_Aggregator{
 			self::$instance->aioec = new WP_Event_Aggregator_Aioec();
 			self::$instance->ee4 = new WP_Event_Aggregator_EE4();
 			self::$instance->my_calendar = new WP_Event_Aggregator_My_Calendar();
+			self::$instance->eventprime = new WP_Event_Aggregator_EventPrime();
 			
 		}
 		return self::$instance;	
@@ -98,14 +99,14 @@ class WP_Event_Aggregator{
 	 *
 	 * @since 1.0.0
 	 */
-	public function __clone() { _doing_it_wrong( __FUNCTION__, __( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.3' ); }
+	public function __clone() { _doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.4' ); }
 
 	/**
 	 * A dummy magic method to prevent WP_Event_Aggregator from being unserialized.
 	 *
 	 * @since 1.0.0
 	 */
-	public function __wakeup() { _doing_it_wrong( __FUNCTION__, __( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.3' ); }
+	public function __wakeup() { _doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.4' ); }
 
 
 	/**
@@ -119,12 +120,12 @@ class WP_Event_Aggregator{
 
 		// Plugin version.
 		if( ! defined( 'WPEA_VERSION' ) ){
-			define( 'WPEA_VERSION', '1.8.3' );
+			define( 'WPEA_VERSION', '1.8.4' );
 		}
 
 		// Minimum Pro plugin version.
 		if( ! defined( 'WPEA_MIN_PRO_VERSION' ) ){
-			define( 'WPEA_MIN_PRO_VERSION', '1.7.9' );
+			define( 'WPEA_MIN_PRO_VERSION', '1.8.0' );
 		}
 
 		// Plugin folder Path.
@@ -189,6 +190,7 @@ class WP_Event_Aggregator{
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-event_organizer.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-aioec.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-my-calendar.php';
+		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-eventprime.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-ee4.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wpea-plugin-deactivation.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-api.php';
@@ -277,8 +279,8 @@ class WP_Event_Aggregator{
 	public function wpea_enqueue_style() {
 
 		$css_dir = WPEA_PLUGIN_URL . 'assets/css/';
-		wp_enqueue_style('font-awesome', $css_dir . 'font-awesome.min.css', false, "" );
-	 	wp_enqueue_style('wp-event-aggregator-front', $css_dir . 'wp-event-aggregator.css', false, "" );
+		wp_enqueue_style('font-awesome', $css_dir . 'font-awesome.min.css', false, WPEA_VERSION );
+	 	wp_enqueue_style('wp-event-aggregator-front', $css_dir . 'wp-event-aggregator.css', false, WPEA_VERSION );
 		wp_enqueue_style('wp-event-aggregator-front-style2', $css_dir . 'grid-style2.css', false, WPEA_VERSION );
 	}
 

@@ -53,25 +53,25 @@ class WP_Event_Aggregator_Ical_Parser_AIOEC {
 		$imported_events = array();
 
 		if( $event_data['ical_import_by_date'] == 'sixmonths' ){
-			$start_date = date('Y-m-d');
-			$end_date   = date('Y-m-d', strtotime('+6 months') );
+			$start_date = gmdate('Y-m-d');
+			$end_date   = gmdate('Y-m-d', strtotime('+6 months') );
 		}elseif( $event_data['ical_import_by_date'] == 'oneyear' ){
-			$start_date = date('Y-m-d');
-			$end_date   = date('Y-m-d', strtotime('+1 years') );
+			$start_date = gmdate('Y-m-d');
+			$end_date   = gmdate('Y-m-d', strtotime('+1 years') );
 		}elseif( $event_data['ical_import_by_date'] == 'twoyears' ){
-			$start_date = date('Y-m-d');
-			$end_date   = date('Y-m-d', strtotime('+2 years') );
+			$start_date = gmdate('Y-m-d');
+			$end_date   = gmdate('Y-m-d', strtotime('+2 years') );
 		}elseif( $event_data['ical_import_by_date'] == 'custom_date_range' ){
 			if( !empty( $event_data['start_date'] ) && !empty( $event_data['end_date'] ) ){
 				$start_date = $event_data['start_date'];
 				$end_date   = $event_data['end_date'];
 			}else{
-				$start_date = date('Y-m-d' );
-				$end_date   = date('Y-m-d', strtotime('+1 years') );
+				$start_date = gmdate('Y-m-d' );
+				$end_date   = gmdate('Y-m-d', strtotime('+1 years') );
 			}
 		}else{
-			$start_date = date('Y-m-d' );
-			$end_date   = date('Y-m-d', strtotime('+1 years') );
+			$start_date = gmdate('Y-m-d' );
+			$end_date   = gmdate('Y-m-d', strtotime('+1 years') );
 		}
 		
 		if( isset( $event_data['start_date'] ) && $event_data['start_date'] != '' ){
@@ -88,12 +88,12 @@ class WP_Event_Aggregator_Ical_Parser_AIOEC {
 			return false;
 		}
 		// Get Start and End date  day,month,year
-		$start_month = date( 'm', $start_date );
-		$start_year  = date( 'Y', $start_date );
-		$start_day   = date( 'd', $start_date );
-		$end_month = date( 'm', $end_date );
-		$end_year  = date( 'Y', $end_date );
-		$end_day   = date( 'd', $end_date );
+		$start_month = gmdate( 'm', $start_date );
+		$start_year  = gmdate( 'Y', $start_date );
+		$start_day   = gmdate( 'd', $start_date );
+		$end_month = gmdate( 'm', $end_date );
+		$end_year  = gmdate( 'Y', $end_date );
+		$end_day   = gmdate( 'd', $end_date );
 
 		// initiate Vcalendar
 		//$config = array( 'unique_id' => 'WP_Event_Aggregator_Ical_Parser' . microtime( true ) ); 
@@ -320,6 +320,17 @@ class WP_Event_Aggregator_Ical_Parser_AIOEC {
 			}		
 		}
 
+		//Get iCal Categories
+		$ical_cats     = $event->getProperty( 'CATEGORIES', false );
+		if( !empty( $ical_cats ) ){
+			if( !is_array( $ical_cats ) ){
+				$ical_cats = array( $ical_cats );
+			}
+			$ical_cats = implode( ',', $ical_cats );
+		}else{
+			$ical_cats = '';
+		}
+
 		$event_image = '';
 		$event_venue = null;
 		$ical_attachment = $event->getProperty( 'ATTACH', false, true );
@@ -364,8 +375,8 @@ class WP_Event_Aggregator_Ical_Parser_AIOEC {
 			'description'     => $post_description,
 			'starttime_local' => $start_time,
 			'endtime_local'   => $end_time,
-			'starttime'       => date('Ymd\THis', $start_time),
-			'endtime'         => date('Ymd\THis', $end_time),
+			'starttime'       => gmdate('Ymd\THis', $start_time),
+			'endtime'         => gmdate('Ymd\THis', $end_time),
 			'startime_utc'    => $start_time,
 			'endtime_utc'     => $end_time,
 			'timezone'        => $timezone,
@@ -375,6 +386,7 @@ class WP_Event_Aggregator_Ical_Parser_AIOEC {
 			'is_all_day'      => $is_all_day,
 			'url'             => $url,
 			'image_url'       => $event_image,
+			'ical_categories' => $ical_cats,
 		);
 
 		$oraganizer_data = null;
@@ -411,7 +423,7 @@ class WP_Event_Aggregator_Ical_Parser_AIOEC {
 		}		
 
 		if( $oraganizer_data['email'] == 'noreply@facebookmail_com' ){
-			$oraganizer_data['email'] = 'noreply@facebookmail.com';
+			$oraganizer_data['email'] = '';
 		}
 		
 		$xt_event['organizer'] = $oraganizer_data;

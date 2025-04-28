@@ -132,6 +132,15 @@ class WP_Event_Aggregator_EventON {
 			//Event ID
 			update_post_meta( $inserted_event_id, 'wpea_event_id', $centralize_array['ID'] );
 
+			$wpea_options       = get_option( WPEA_OPTIONS );
+			$is_import_ical_cat = isset( $wpea_options['ical']['ical_cat_import'] ) ? $wpea_options['ical']['ical_cat_import'] : 'no';
+			$ical_categories    = isset( $centralize_array['ical_categories'] ) ? $centralize_array['ical_categories'] : '';
+			if( !empty( $ical_categories ) && $is_import_ical_cat == 'yes' ){
+				$ical_cats      = explode( ',', $ical_categories );
+				$event_cat_ids  = $importevents->common->wepa_create_update_ical_categories( $ical_cats, $this->taxonomy );
+				$event_args['event_cats']  = array_merge( $event_args['event_cats'], $event_cat_ids );
+			}
+
 			// Asign event category.
 			$wpea_cats = isset( $event_args['event_cats'] ) ? $event_args['event_cats'] : array();
 			$wpea_cats2 = isset( $event_args['event_cats2'] ) ? $event_args['event_cats2'] : array();
@@ -173,12 +182,12 @@ class WP_Event_Aggregator_EventON {
 			$country = isset( $centralize_array['location']['country'] ) ? sanitize_text_field($centralize_array['location']['country']) : '';
 			$is_all_day    = !empty( $centralize_array['is_all_day'] ) ? $centralize_array['is_all_day'] : 0;
 			$timezone_name = isset( $centralize_array['timezone_name'] ) ? $centralize_array['timezone_name'] : 'Africa/Abidjan';
-			$start_ampm = date("a", $start_time);
-			$start_hour = date("h", $start_time);
-			$start_minute = date("i", $start_time);
-			$end_ampm = date("a", $end_time);
-			$end_hour = date("h", $end_time);
-			$end_minute = date("i", $end_time);
+			$start_ampm = gmdate("a", $start_time);
+			$start_hour = gmdate("h", $start_time);
+			$start_minute = gmdate("i", $start_time);
+			$end_ampm = gmdate("a", $end_time);
+			$end_hour = gmdate("h", $end_time);
+			$end_minute = gmdate("i", $end_time);
 
 			update_post_meta( $inserted_event_id, 'wpea_event_origin', $event_args['import_origin'] );
 			update_post_meta( $inserted_event_id, 'wpea_event_link', $centralize_array['url'] );
