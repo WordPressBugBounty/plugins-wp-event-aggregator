@@ -3,7 +3,7 @@
  * Plugin Name:       WP Event Aggregator
  * Plugin URI:        http://xylusthemes.com/plugins/wp-event-aggregator/
  * Description:       Import Events from anywhere - Facebook, Eventbrite, Meetup, iCalendar and ICS into your WordPress site.
- * Version:           1.8.5
+ * Version:           1.8.9
  * Author:            Xylus Themes
  * Author URL:        http://xylusthemes.com
  * License:           GPL-2.0+
@@ -27,7 +27,7 @@ class WP_Event_Aggregator{
 	 * WP_Event_Aggregator The one true WP_Event_Aggregator.
 	 */
 	private static $instance;
-	public $common, $cpt, $eventbrite, $meetup, $facebook, $ical_parser, $ical, $admin, $manage_import, $wpea, $tec, $em, $eventon, $event_organizer, $aioec, $ee4, $my_calendar, $common_pro, $facebook_pro, $eventum, $cron, $fb_authorize, $meetup_authorize, $ical_parser_aioec, $eventprime;
+	public $common, $cpt, $eventbrite, $meetup, $facebook, $ical_parser, $ical, $admin, $manage_import, $wpea, $tec, $em, $eventon, $event_organizer, $aioec, $ee4, $my_calendar, $common_pro, $facebook_pro, $eventum, $cron, $fb_authorize, $meetup_authorize, $ical_parser_aioec, $eventprime, $ajax, $eventbrite_api;
 
     /**
      * Main WP Event Aggregator Instance.
@@ -56,6 +56,7 @@ class WP_Event_Aggregator{
 
 			self::$instance->includes();
 			self::$instance->common = new WP_Event_Aggregator_Common();
+			self::$instance->ajax   = new WP_Event_Aggregator_Ajax();
 			self::$instance->cpt    = new WP_Event_Aggregator_Cpt();
 			self::$instance->eventbrite = new WP_Event_Aggregator_Eventbrite();
 			self::$instance->meetup = new WP_Event_Aggregator_Meetup();
@@ -64,7 +65,8 @@ class WP_Event_Aggregator{
 			self::$instance->ical_parser_aioec = new WP_Event_Aggregator_Ical_Parser_AIOEC();
 			self::$instance->ical = new WP_Event_Aggregator_Ical();
 			self::$instance->admin = new WP_Event_Aggregator_Admin();
-			if( wpea_is_pro() ){
+			self::$instance->eventbrite_api = new WP_Event_Aggregator_Eventbrite_API();
+			if ( wpea_is_pro() && class_exists( 'WP_Event_Aggregator_Pro_Manage_Import' ) ) {
 				self::$instance->manage_import = new WP_Event_Aggregator_Pro_Manage_Import();
 			}else{
 				self::$instance->manage_import = new WP_Event_Aggregator_Manage_Import();
@@ -99,14 +101,14 @@ class WP_Event_Aggregator{
 	 *
 	 * @since 1.0.0
 	 */
-	public function __clone() { _doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.5' ); }
+	public function __clone() { _doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.9' ); }
 
 	/**
 	 * A dummy magic method to prevent WP_Event_Aggregator from being unserialized.
 	 *
 	 * @since 1.0.0
 	 */
-	public function __wakeup() { _doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.5' ); }
+	public function __wakeup() { _doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'wp-event-aggregator' ), '1.8.9' ); }
 
 
 	/**
@@ -120,12 +122,12 @@ class WP_Event_Aggregator{
 
 		// Plugin version.
 		if( ! defined( 'WPEA_VERSION' ) ){
-			define( 'WPEA_VERSION', '1.8.5' );
+			define( 'WPEA_VERSION', '1.8.9' );
 		}
 
 		// Minimum Pro plugin version.
 		if( ! defined( 'WPEA_MIN_PRO_VERSION' ) ){
-			define( 'WPEA_MIN_PRO_VERSION', '1.8.1' );
+			define( 'WPEA_MIN_PRO_VERSION', '1.8.3' );
 		}
 
 		// Plugin folder Path.
@@ -164,19 +166,21 @@ class WP_Event_Aggregator{
 	private function includes() {
 
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-common.php';
+		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-ajax.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-list-table.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-admin.php';
-		if( wpea_is_pro() ){
+		if ( defined( 'WPEAPRO_PLUGIN_DIR' ) && function_exists('wpea_is_pro') && wpea_is_pro() ){
 			require_once WPEAPRO_PLUGIN_DIR . 'includes/class-wp-event-aggregator-manage-import.php';
 		}else{
 			require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-manage-import.php';	
-		}		
+		}
 		if( !class_exists( 'Kigkonsult\Icalcreator\Vcalendar' ) ){
 			require_once WPEA_PLUGIN_DIR . 'includes/lib/icalcreator/autoload.php';
 		}
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-cpt.php';
 
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-eventbrite.php';
+		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-eventbrite_api.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-meetup.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-facebook.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-ical_parser.php';
@@ -194,7 +198,9 @@ class WP_Event_Aggregator{
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-ee4.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wpea-plugin-deactivation.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-api.php';
+		require_once WPEA_PLUGIN_DIR . 'includes/class-wp-event-aggregator-public-api.php';
 		require_once WPEA_PLUGIN_DIR . 'includes/parsedown.php';
+		require_once WPEA_PLUGIN_DIR . 'includes/wpea-action-scheduler/wpea-image-init.php';
 
 		// Gutenberg Block
 		include_once WPEA_PLUGIN_DIR . 'blocks/wp-events/index.php';
@@ -293,7 +299,11 @@ class WP_Event_Aggregator{
 	 */
 	public function wpea_enqueue_script() {
 		
-		// enqueue script here.
+		$js_dir = WPEA_PLUGIN_URL . 'assets/js/';
+			wp_enqueue_script( 'wpea-ajax-pagi', $js_dir . 'wpea-ajax-pagi.js', array( 'jquery' ), WPEA_VERSION, true );
+			wp_localize_script( 'wpea-ajax-pagi', 'wpea_ajax', array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+		));
 	}
 
 }

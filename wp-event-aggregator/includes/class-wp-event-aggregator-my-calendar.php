@@ -124,6 +124,14 @@ class WP_Event_Aggregator_My_Calendar {
 
 			// Asign event category.
 			$wpea_cats = isset( $event_args['event_cats'] ) ? $event_args['event_cats'] : array();
+			$category  = isset( $centralize_array['category'] ) ? $centralize_array['category'] : '';
+			if ( ! empty( $category ) ) {
+				$cat_id = $importevents->common->wpea_check_category_exists( $category, $this->taxonomy );
+
+				if ( $cat_id ) {
+					$wpea_cats[] = (int) $cat_id;
+				}
+			}
 			if ( ! empty( $wpea_cats ) ) {
 				foreach ( $wpea_cats as $wpea_catk => $wpea_catv ) {
 					$wpea_cats[ $wpea_catk ] = (int) $wpea_catv;
@@ -139,7 +147,7 @@ class WP_Event_Aggregator_My_Calendar {
 			// Assign Featured images
 			$event_image = $centralize_array['image_url'];
 			if ( ! empty( $event_image ) ) {
-				$importevents->common->setup_featured_image_to_event( $inserted_event_id, $event_image );
+				$importevents->common->wpea_set_feature_image_logic( $inserted_event_id, $event_image, $event_args );
 			}else{
 				$default_thumb  = isset( $wpea_options['wpea']['wpea_event_default_thumbnail'] ) ? $wpea_options['wpea']['wpea_event_default_thumbnail'] : '';
 				if( !empty( $default_thumb ) ){
@@ -155,6 +163,14 @@ class WP_Event_Aggregator_My_Calendar {
 			update_post_meta( $inserted_event_id, 'wpea_event_link', $centralize_array['url'] );
 			update_post_meta( $inserted_event_id, '_wpea_starttime_str', $start_time );
 			update_post_meta( $inserted_event_id, '_wpea_endtime_str', $end_time );
+
+			// Ticket Price
+			$wpea_ticket_price    = isset( $centralize_array['ticket_price'] ) ? sanitize_text_field( $centralize_array['ticket_price'] ) : '0';
+			$wpea_ticket_currency = isset( $centralize_array['ticket_currency'] ) ? sanitize_text_field( $centralize_array['ticket_currency'] ) : '';
+			
+			// Update Ticket Price
+			update_post_meta( $inserted_event_id, 'wpea_ticket_price', $wpea_ticket_price );
+			update_post_meta( $inserted_event_id, 'wpea_ticket_currency', $wpea_ticket_currency );
 
 			// Series id
 			$series_id   = isset( $centralize_array['series_id'] ) ? $centralize_array['series_id'] : '';			
@@ -175,8 +191,9 @@ class WP_Event_Aggregator_My_Calendar {
 			$event_category = 1;
 			if ( ! empty( $wpea_cats ) ) {
 				$event_cat = $wpea_cats[0];
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-				$temp_event_cat = $wpdb->get_var( "SELECT `category_id` FROM " . my_calendar_categories_table() . " WHERE `category_term` = ". (int)$event_cat ." LIMIT 1"  );
+				$query          = $wpdb->prepare( "SELECT `category_id` FROM " . my_calendar_categories_table() . " WHERE `category_term` = %d LIMIT 1", $event_cat ); // phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.PreparedSQL.NotPrepared
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
+				$temp_event_cat = $wpdb->get_var( $query );
 				if( $temp_event_cat > 0 && is_numeric( $temp_event_cat ) && !empty( $temp_event_cat ) ){
 					$event_category = $temp_event_cat;
 				}
@@ -243,7 +260,7 @@ class WP_Event_Aggregator_My_Calendar {
 					'%s',
 					'%s'
 				);
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 				$location_id = $wpdb->get_var( "SELECT `location_id` FROM ".my_calendar_locations_table()." WHERE `location_label` = '".  esc_sql( $event_label ) ."'"  );
 				if( $location_id > 0 && is_numeric( $location_id ) && !empty( $location_id ) ){
 					
@@ -346,13 +363,13 @@ class WP_Event_Aggregator_My_Calendar {
 				'%f',
 				'%f'
 			);
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 			$db_event_id = $wpdb->get_var( $wpdb->prepare( "SELECT `event_id` FROM ".my_calendar_table()." WHERE `event_post`= %d LIMIT 1", $inserted_event_id ) );
 
 			if( $db_event_id > 0 && is_numeric( $db_event_id ) && !empty( $db_event_id ) ){
 				
 				if (!($is_exitsing_event && ! $importevents->common->wpea_is_updatable('category') )){
-					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 					$cat_id = $wpdb->get_var( "SELECT `event_category` FROM ".my_calendar_table()." WHERE `event_id`=". absint( $db_event_id ) );
 					if( $cat_id ){
 						$event_data['event_category'] = $cat_id;
@@ -360,17 +377,17 @@ class WP_Event_Aggregator_My_Calendar {
 					
 					$selected_categories = $event_args['event_cats'];
 					foreach( $selected_categories as $select_cat ){
-						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 						$cat_is_exist_id = $wpdb->get_var( "SELECT `category_id` FROM ".my_calendar_categories_table()." WHERE `category_term`=". absint( $select_cat ) );
 						if( empty( $cat_is_exist_id ) ){
 							// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 							$cat_name = get_the_category_by_ID( $select_cat );
 							$catsql       = "INSERT INTO " . my_calendar_categories_table() . " ( `category_name`, `category_color`, `category_icon`, `category_private`, `category_term`) VALUES ( '$cat_name', '', '', '0', '0');";
-							// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+							// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 							$cats_results = $wpdb->query( $wpdb->prepare( $catsql ) );
 						}
 
-						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 						$relationship_exists = $wpdb->get_var( $wpdb->prepare( "SELECT `relationship_id` FROM " . my_calendar_category_relationships_table() . " WHERE `event_id` = %d AND `category_id` = %d", $db_event_id, $cat_is_exist_id ) );
 						if ( empty( $relationship_exists ) ) {
 							// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
@@ -398,7 +415,7 @@ class WP_Event_Aggregator_My_Calendar {
 					'occur_group_id' => 0
 				);
 
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 				$occur_id = $wpdb->get_var( "SELECT `occur_id` FROM ".my_calendar_event_table()." WHERE `occur_event_id`=". absint( $db_event_id ) );
 				$occur_format   = array( '%d', '%s', '%s', '%d' );
 				if( $occur_id > 0 && is_numeric( $occur_id ) && !empty( $occur_id ) ){

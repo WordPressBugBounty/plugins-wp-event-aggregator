@@ -255,6 +255,8 @@ class WP_Event_Aggregator_Common {
 			$source = '<a href="https://www.facebook.com/groups/' . $source_data['facebook_group_id'] . '" target="_blank" >Facebook Group</a>';
 		}elseif( $source_data['import_by'] == 'group_url' ){
 			$source = '<a href="' . $source_data['meetup_url'] . '" target="_blank" >' . $schedule_title . '</a>';
+		}elseif( $source_data['import_by'] == 'outlook_calendar' ){
+			$source = 'Microsoft Outlook '. $schedule_title;
 		}else{
 			$source = 'No Data Found';
 		}
@@ -690,8 +692,16 @@ class WP_Event_Aggregator_Common {
 	 * @since   1.6.5
 	 * @return  void
 	 */
-	function render_import_source( $schedule_eventdata = '' ){
-		if( !empty( $schedule_eventdata['page_username'] ) ){
+	public function render_import_source( $schedule_eventdata = '' ) {
+
+		// Allow addons to override this logic via filter
+		$custom_source = apply_filters( 'wpea_render_import_source', null, $schedule_eventdata );
+
+		if ( is_array( $custom_source ) && ! empty( $custom_source['name'] ) && isset( $custom_source['value'], $custom_source['label'] ) ) {
+			$name          = $custom_source['name'];
+			$event_source  = $custom_source['value'];
+			$event_origins = $custom_source['label'];
+		}elseif( !empty( $schedule_eventdata['page_username'] ) ) {
 			$event_source  = $schedule_eventdata['page_username'];
 			$event_origins = 'Facebook Page ID';
 			$name          = 'page_username';
@@ -723,7 +733,7 @@ class WP_Event_Aggregator_Common {
 		?>
 		<td>
 			<input type="text" name="<?php echo esc_attr( $name ); ?>" required="required" value="<?php echo esc_attr( $event_source ); ?>">
-			<span><?php echo esc_attr( $event_origins ); ?></span>
+			<span><?php echo esc_html( $event_origins ); ?></span>
 		</td>
 		<?php
 	}
@@ -1399,7 +1409,7 @@ class WP_Event_Aggregator_Common {
 			AND pm.meta_key = %s";
 
 		$prepared_sql = $wpdb->prepare( $sql, $current_time, $current_time, 'wp_events', 'publish', 'end_ts' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$counts       = $wpdb->get_row( $prepared_sql );
 
 		// Return the counts as an array
@@ -1428,6 +1438,71 @@ class WP_Event_Aggregator_Common {
             'xt-feed-for-linkedin' => array( 'plugin_name' => esc_html__( 'XT Feed for LinkedIn', 'wp-event-aggregator' ), 'description' => 'XT Feed for LinkedIn auto-shares WordPress posts to LinkedIn with one click, making content distribution easy and boosting your reach effortlessly.' ),
         );
     }
+
+	/**
+	 * Render Event Feature Image Action
+	 *
+	 * @since 1.1
+	 * @return void
+	 */
+	public function wpea_set_feature_image_logic( $event_id, $image_url, $event_args ){
+		global $importevents;
+		
+		if ( $event_args['import_type'] === 'onetime' && $event_args['import_by'] === 'event_id' ) {
+			$importevents->common->setup_featured_image_to_event( $event_id, $image_url );
+		} else {
+			if ( class_exists( 'WPEA_Event_Image_Scheduler' ) ) {
+				WPEA_Event_Image_Scheduler::schedule_image_download( $event_id, $image_url, $event_args );
+			}
+		}
+	}
+
+	/**
+	 * Checks if a category exists
+	 *
+	 * @param string $cat_name The name of the category to check
+	 * @param string $taxonomy The taxonomy to check in
+	 * @return int The ID of the category if it exists, 0 otherwise
+	 */
+	public function wpea_check_category_exists( $cat_name, $taxonomy ) {
+		$cat_id = 0;
+
+		if ( ! empty( $cat_name ) ) {
+			$cat_slug = strtolower(str_replace('_', '-', trim($cat_name)));
+			$term = term_exists( $cat_slug, $taxonomy );
+
+			if ( $term === 0 || $term === null ) {
+				$cat_name_formatted = str_replace( '_', ' ', $cat_name );
+				$cat_name_formatted = ucwords( strtolower( trim( $cat_name_formatted ) ) );
+
+				$term = term_exists( $cat_name_formatted, $taxonomy );
+
+				if ( $term === 0 || $term === null ) {
+					$new_term = wp_insert_term( $cat_name_formatted, $taxonomy, array(
+						'slug' => $cat_slug
+					));
+
+					if ( ! is_wp_error( $new_term ) && isset( $new_term['term_id'] ) ) {
+						$cat_id = (int) $new_term['term_id'];
+					}
+				} else {
+					if ( is_array( $term ) && isset( $term['term_id'] ) ) {
+						$cat_id = (int) $term['term_id'];
+					} elseif ( is_numeric( $term ) ) {
+						$cat_id = (int) $term;
+					}
+				}
+			} else {
+				if ( is_array( $term ) && isset( $term['term_id'] ) ) {
+					$cat_id = (int) $term['term_id'];
+				} elseif ( is_numeric( $term ) ) {
+					$cat_id = (int) $term;
+				}
+			}
+		}
+
+		return $cat_id;
+	}
 }
 
 

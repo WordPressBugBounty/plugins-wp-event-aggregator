@@ -134,6 +134,14 @@ class WP_Event_Aggregator_EE4 {
 
 			// Asign event category.
 			$wpea_cats = isset( $event_args['event_cats'] ) ? $event_args['event_cats'] : array();
+			$category  = isset( $centralize_array['category'] ) ? $centralize_array['category'] : '';
+			if ( ! empty( $category ) ) {
+				$cat_id = $importevents->common->wpea_check_category_exists( $category, $this->taxonomy );
+
+				if ( $cat_id ) {
+					$wpea_cats[] = (int) $cat_id;
+				}
+			}
 			if ( ! empty( $wpea_cats ) ) {
 				foreach ( $wpea_cats as $wpea_catk => $wpea_catv ) {
 					$wpea_cats[ $wpea_catk ] = (int) $wpea_catv;
@@ -149,7 +157,7 @@ class WP_Event_Aggregator_EE4 {
 			// Assign Featured images
 			$event_image = $centralize_array['image_url'];
 			if ( ! empty( $event_image ) ) {
-				$importevents->common->setup_featured_image_to_event( $inserted_event_id, $event_image );
+				$importevents->common->wpea_set_feature_image_logic( $inserted_event_id, $event_image, $event_args );
 			}else{
 				$default_thumb  = isset( $wpea_options['wpea']['wpea_event_default_thumbnail'] ) ? $wpea_options['wpea']['wpea_event_default_thumbnail'] : '';
 				if( !empty( $default_thumb ) ){
@@ -191,7 +199,7 @@ class WP_Event_Aggregator_EE4 {
 					'EVT_display_ticket_selector' => 0,
 					'EVT_visible_on'			  => gmdate('Y-m-d H:i:s')
 				);
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 				$event_meta_id = $wpdb->get_var( $wpdb->prepare( "SELECT `EVTM_ID` FROM {$event_meta_table} WHERE EVT_ID = %d", $inserted_event_id ) );
 				if( !empty($event_meta_id) && $event_meta_id > 0 ){
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
@@ -212,7 +220,7 @@ class WP_Event_Aggregator_EE4 {
 			if( !empty( $venue_id ) && $venue_id > 0 ){
 				// Connect venue with Event
 				$event_venue_table = $wpdb->prefix . 'esp_event_venue';
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 				$result = $wpdb->get_col( $wpdb->prepare( "SELECT * FROM {$event_venue_table} WHERE EVT_ID = %d", $inserted_event_id ) );
 				if( count( $result ) > 0 ){
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
@@ -230,6 +238,14 @@ class WP_Event_Aggregator_EE4 {
 			update_post_meta( $inserted_event_id, '_wpea_endtime_str', $end_time );
 			update_post_meta( $inserted_event_id, 'start_ts', $start_time );
 			update_post_meta( $inserted_event_id, 'end_ts', $end_time );
+
+			// Ticket Price
+			$wpea_ticket_price    = isset( $centralize_array['ticket_price'] ) ? sanitize_text_field( $centralize_array['ticket_price'] ) : '0';
+			$wpea_ticket_currency = isset( $centralize_array['ticket_currency'] ) ? sanitize_text_field( $centralize_array['ticket_currency'] ) : '';
+			
+			// Update Ticket Price
+			update_post_meta( $inserted_event_id, 'wpea_ticket_price', $wpea_ticket_price );
+			update_post_meta( $inserted_event_id, 'wpea_ticket_currency', $wpea_ticket_currency );
 
 			// Series id
 			$series_id   = isset( $centralize_array['series_id'] ) ? $centralize_array['series_id'] : '';			
@@ -322,7 +338,7 @@ class WP_Event_Aggregator_EE4 {
 		$country_table = $wpdb->prefix . 'esp_country';
 		$state_table = $wpdb->prefix . 'esp_state';
 		if( $venue_country != ''){
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 			$cnt_country = $wpdb->get_row( $wpdb->prepare( "SELECT `CNT_ISO`,`CNT_active` FROM {$country_table} WHERE `CNT_name` = %s OR `CNT_ISO` = %s OR `CNT_ISO3` = %s", $venue_country, $venue_country, $venue_country ) );
 			if( !empty( $cnt_country ) && isset( $cnt_country->CNT_ISO ) ){
 				$cnt_iso = $cnt_country->CNT_ISO;
@@ -334,7 +350,7 @@ class WP_Event_Aggregator_EE4 {
 		}
 
 		if( $venue_state != '' && $cnt_iso != ''){
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, PluginCheck.Security.DirectDB.UnescapedDBParameter
 			$sta_id = $wpdb->get_var( $wpdb->prepare( "SELECT `STA_ID` FROM {$state_table} WHERE `CNT_ISO` = %s AND (`STA_abbrev` = %s OR `STA_name` = %s)", $cnt_iso, $venue_state, $venue_state ) );
 			if( empty( $sta_id ) || is_null( $sta_id ) ){
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange

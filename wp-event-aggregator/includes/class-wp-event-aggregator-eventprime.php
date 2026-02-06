@@ -130,6 +130,14 @@ class WP_Event_Aggregator_EventPrime {
 
 			// Asign event category.
 			$wpea_cats = isset( $event_args['event_cats'] ) ? $event_args['event_cats'] : array();
+			$category  = isset( $centralize_array['category'] ) ? $centralize_array['category'] : '';
+			if ( ! empty( $category ) ) {
+				$cat_id = $importevents->common->wpea_check_category_exists( $category, $this->taxonomy );
+
+				if ( $cat_id ) {
+					$wpea_cats[] = (int) $cat_id;
+				}
+			}
 			if ( ! empty( $wpea_cats ) ) {
 				foreach ( $wpea_cats as $wpea_catk => $wpea_catv ) {
 					$wpea_cats[ $wpea_catk ] = (int) $wpea_catv;
@@ -144,7 +152,7 @@ class WP_Event_Aggregator_EventPrime {
 			// Assign Featured images
 			$event_image = $centralize_array['image_url'];
 			if ( ! empty( $event_image ) ) {
-				$importevents->common->setup_featured_image_to_event( $inserted_event_id, $event_image );
+				$importevents->common->wpea_set_feature_image_logic( $inserted_event_id, $event_image, $event_args );
 			}else{
 				$default_thumb  = isset( $wpea_options['wpea']['wpea_event_default_thumbnail'] ) ? $wpea_options['wpea']['wpea_event_default_thumbnail'] : '';
 				if( !empty( $default_thumb ) ){
@@ -179,6 +187,14 @@ class WP_Event_Aggregator_EventPrime {
 			update_post_meta( $inserted_event_id, 'em_allow_cancellations', '0' );
 			update_post_meta( $inserted_event_id, 'em_enable_recurrence', '0' );
 			update_post_meta( $inserted_event_id, 'em_recurrence_step', '0' );
+
+			// Ticket Price
+			$wpea_ticket_price    = isset( $centralize_array['ticket_price'] ) ? sanitize_text_field( $centralize_array['ticket_price'] ) : '0';
+			$wpea_ticket_currency = isset( $centralize_array['ticket_currency'] ) ? sanitize_text_field( $centralize_array['ticket_currency'] ) : '';
+			
+			// Update Ticket Price
+			update_post_meta( $inserted_event_id, 'wpea_ticket_price', $wpea_ticket_price );
+			update_post_meta( $inserted_event_id, 'wpea_ticket_currency', $wpea_ticket_currency );
 
 			// Series id
 			$series_id   = isset( $centralize_array['series_id'] ) ? $centralize_array['series_id'] : '';			

@@ -44,6 +44,7 @@ class WP_Event_Aggregator_Admin {
 		add_action( 'wp_dashboard_setup', array( $this, 'add_dashboard_widget') );
 		add_action( 'admin_action_wpea_view_import_history',  array( $this, 'wpea_view_import_history_handler' ) );
 		add_action( 'admin_init', array( $this, 'setup_success_messages' ) );
+		add_action( 'admin_init', array( $this, 'wpea_wp_cron_check' ) );
 	}
 
 	/**
@@ -62,6 +63,9 @@ class WP_Event_Aggregator_Admin {
     	$submenu['import_events'][] = array( __( 'Meetup Import', 'wp-event-aggregator' ), 'manage_options', admin_url( 'admin.php?page=import_events&tab=meetup' ) );
     	$submenu['import_events'][] = array( __( 'Facebook Import', 'wp-event-aggregator' ), 'manage_options', admin_url( 'admin.php?page=import_events&tab=facebook' ));
     	$submenu['import_events'][] = array( __( 'iCalendar/.ics Import', 'wp-event-aggregator' ), 'manage_options', admin_url( 'admin.php?page=import_events&tab=ical' ));
+		
+		do_action( 'wpea_addon_submenus' );
+		
 		$submenu['import_events'][] = array( __( 'Schedule Imports', 'wp-event-aggregator' ), 'manage_options', admin_url( 'admin.php?page=import_events&tab=scheduled' ));
     	$submenu['import_events'][] = array( __( 'Import History', 'wp-event-aggregator' ), 'manage_options', admin_url( 'admin.php?page=import_events&tab=history' ));
     	$submenu['import_events'][] = array( __( 'Settings', 'wp-event-aggregator' ), 'manage_options', admin_url( 'admin.php?page=import_events&tab=settings' ));
@@ -200,6 +204,9 @@ class WP_Event_Aggregator_Admin {
 														<a href="<?php echo esc_url( add_query_arg( 'tab', 'ical', $this->adminpage_url ) ); ?>" class="var-tab <?php echo ( $active_tab == 'ical' )  ? 'var-tab--active' : 'var-tab--inactive'; ?>">
 															<span class="tab-label"><?php esc_attr_e( 'iCalendar / .ics', 'wp-event-aggregator' ); ?></span>
 														</a>
+														
+														<?php do_action( 'wpea_addon_submenus_tabs', $active_tab ); ?>
+
 														<a href="<?php echo esc_url( add_query_arg( 'tab', 'scheduled', $this->adminpage_url ) ); ?>" class="var-tab <?php echo ( $active_tab == 'scheduled' )  ? 'var-tab--active' : 'var-tab--inactive'; ?>">
 															<span class="tab-label"><?php esc_attr_e( 'Scheduled Imports', 'wp-event-aggregator' ); if( !wpea_is_pro() ){ echo '<div class="wpea-pro-badge"> PRO </div>'; } ?></span>
 														</a>
@@ -252,6 +259,8 @@ class WP_Event_Aggregator_Admin {
 										}elseif ( $active_tab == 'shortcodes' ) {
 											require_once WPEA_PLUGIN_DIR . '/templates/admin/wp-event-aggregator-shortcode.php';
 										}
+
+										do_action( 'wpea_addon_submenus_pages', $active_tab, $ntab );
 									?>
 								</div>
 							</div>
@@ -436,7 +445,7 @@ class WP_Event_Aggregator_Admin {
 	public function add_event_aggregator_credit( $footer_text ){
 		$page = isset( $_GET['page'] ) ? esc_attr( sanitize_text_field( wp_unslash( $_GET['page'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( $page != '' && $page == 'import_events' ) {
-			$rate_url = 'https://wordpress.org/support/plugin/wp-event-aggregator/reviews/?rate=5#new-post';
+			$rate_url = 'https://wordpress.org/support/plugin/wp-event-aggregator/reviews/';
 			$footer_text .= sprintf(
 				// translators: %1$s: Opening HTML tag for WP Event Aggregator, %2$s: Closing HTML tag for WP Event Aggregator, %3$s: The star rating link
 				esc_html__( ' Rate %1$sWP Event Aggregator%2$s %3$s', 'wp-event-aggregator' ),
@@ -527,7 +536,7 @@ class WP_Event_Aggregator_Admin {
 	 */
 	public function wpea_view_import_history_handler() {
 		if( ! defined( 'IFRAME_REQUEST' ) ){
-		    define( 'IFRAME_REQUEST', true );
+		    define( 'IFRAME_REQUEST', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound
 		}
 	    iframe_header();
 	    $history_id = isset( $_GET['history'] ) ? absint( $_GET['history'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -673,5 +682,30 @@ class WP_Event_Aggregator_Admin {
 			}
 		}
 
+	}
+
+	/**
+	 * Check if WP-Cron is enabled
+	 *
+	 * Checks if WP-Cron is enabled and if the current page is the scheduled imports page.
+	 * If WP-Cron is disabled, it will display an error message.
+	 *
+	 * @since 1.0
+	 * @return void
+	 */
+	public function wpea_wp_cron_check() {
+		global $wpea_errors;
+
+		if (  ! is_admin()  || empty( $_GET['page'] )  || empty( $_GET['tab'] )  || sanitize_text_field( wp_unslash( $_GET['page'] ) ) !== 'import_events'  || sanitize_text_field( wp_unslash( $_GET['tab'] ) ) !== 'scheduled'  ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		if ( defined('DISABLE_WP_CRON') && DISABLE_WP_CRON ) {
+			$wpea_errors[] = __(
+				'<strong>Scheduled imports are paused.</strong> WP-Cron is disabled on your site, so scheduled imports won’t run automatically. Enable WP-Cron or set a server cron job to keep imports running smoothly.',
+				'wp-event-aggregator'
+			);
+
+		}
 	}
 }
