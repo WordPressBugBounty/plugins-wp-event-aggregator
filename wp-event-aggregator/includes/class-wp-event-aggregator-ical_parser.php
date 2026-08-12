@@ -326,7 +326,22 @@ class WP_Event_Aggregator_Ical_Parser {
 		if( !empty( $ical_wp_images ) && !empty( $ical_wp_images[1]) ){
 			$event_image =  $ical_wp_images[1];
 		}
+
+		// add new method with image tag
+		try {
+			if (method_exists($event, 'getImage')) {
+				$image = $event->getImage();
+
+				if (!empty($image)) {
+					$event_image = $image;
+				}
+			}
+		} catch (\Exception $e) {
+			$event_image = '';
+		}
+
 		$timezone_name = !empty( $timezone ) ? $timezone : $calendar_timezone;
+		$post_description = $importevents->common->wpea_remove_facebook_link_in_event_description( $post_description, $uid );
 
 		// Only for facebook ical imports.
 		$match = 'https://www.facebook.com/events/';
@@ -338,10 +353,10 @@ class WP_Event_Aggregator_Ical_Parser {
 			$timezone_name = $cwt_start['timezone_name'];
 			$start_time    = strtotime( $cwt_start['date_format'] );
 			$end_time      = strtotime( $cwt_end['date_format'] );
+		}else{
+			$post_description = $importevents->common->wpea_convert_text_to_hyperlink( $post_description );
 		}
 
-		$post_description = $importevents->common->wpea_remove_facebook_link_in_event_description( $post_description, $uid );
-		$post_description = $importevents->common->wpea_convert_text_to_hyperlink( $post_description );
 		
 		$xt_event = array(
 			'origin'          => 'ical',
@@ -398,7 +413,7 @@ class WP_Event_Aggregator_Ical_Parser {
 			}
 		}		
 		
-		if( $oraganizer_data['email'] == 'noreply@facebookmail_com' ){
+		if( is_array( $oraganizer_data ) && $oraganizer_data['email'] == 'noreply@facebookmail_com' ){
 			$oraganizer_data['email'] = '';
 		}
 		
